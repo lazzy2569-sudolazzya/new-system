@@ -1,0 +1,7 @@
+# LAN-facing reverse proxy for the app server. Cloudflare Tunnel
+# (cloudflared) terminates TLS at Cloudflare's edge for remote access and
+# forwards into this same origin (plan section 1.3) -- this file only
+# covers the local, on-premise side.
+erp.local {
+    reverse_proxy localhost:8000
+}
