@@ -44,8 +44,7 @@ jobs:
 
       - name: Create erp_test database
         run: |
-          sudo apt-get install -y postgresql-client
-          PGPASSWORD=erp psql -h localhost -U erp -d erp -c "SELECT 1" # wait for readiness
+          sudo apt-get update && sudo apt-get install -y postgresql-client
           PGPASSWORD=erp createdb -h localhost -U erp erp_test
 
       - name: Migrate up, down, up
