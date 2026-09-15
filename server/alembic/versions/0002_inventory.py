@@ -145,6 +145,12 @@ def downgrade() -> None:
     op.drop_index("ix_sm_occurred", table_name="stock_movements")
     op.drop_index("ix_sm_product_location", table_name="stock_movements")
     op.drop_table("stock_movements")
+    # op.create_table auto-creates an Enum column's type as part of table
+    # creation, but op.drop_table is just a bare DROP TABLE -- it has no
+    # column information and so never drops the type. Without this, the
+    # type is left behind and the *next* upgrade fails with "type
+    # movement_type already exists" when create_table tries to recreate it.
+    MOVEMENT_TYPE.drop(op.get_bind())
     op.drop_table("products")
     op.drop_table("locations")
     op.drop_table("categories")
