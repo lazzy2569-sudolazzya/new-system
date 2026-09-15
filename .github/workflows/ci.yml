@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: erp
+          POSTGRES_PASSWORD: erp
+          POSTGRES_DB: erp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U erp"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+psycopg://erp:erp@localhost:5432/erp
+      TEST_DATABASE_URL: postgresql+psycopg://erp:erp@localhost:5432/erp_test
+      JWT_SECRET: ci-only-secret
+
+    defaults:
+      run:
+        working-directory: server
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Create erp_test database
+        run: |
+          sudo apt-get install -y postgresql-client
+          PGPASSWORD=erp psql -h localhost -U erp -d erp -c "SELECT 1" # wait for readiness
+          PGPASSWORD=erp createdb -h localhost -U erp erp_test
+
+      - name: Migrate up, down, up
+        run: |
+          python -m alembic upgrade head
+          python -m alembic downgrade -1
+          python -m alembic upgrade head
+
+      # A route added without a permission check (or an explicit
+      # PUBLIC_ROUTES entry) is exactly the kind of regression this suite
+      # exists to catch on every push, per plan section 6.3.
+      - name: Run tests
+        run: python -m pytest tests/ -v

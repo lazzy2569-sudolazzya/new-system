@@ -19,13 +19,22 @@ from PySide6.QtWidgets import (
 )
 
 from client.api_client import TOKEN_SERVICE, ApiWorker, login
+from client.offline.banner import OfflineBanner
 
 
 class MainWindow(QMainWindow):
     def __init__(self, username: str):
         super().__init__()
         self.setWindowTitle("ERP")
-        self.setCentralWidget(QLabel(f"Logged in as {username}"))
+
+        self.banner = OfflineBanner(QThreadPool.globalInstance())
+        layout = QVBoxLayout()
+        layout.addWidget(self.banner)
+        layout.addWidget(QLabel(f"Logged in as {username}"))
+
+        container = QWidget()
+        container.setLayout(layout)
+        self.setCentralWidget(container)
 
 
 class LoginWindow(QMainWindow):
@@ -87,6 +96,13 @@ class LoginWindow(QMainWindow):
 
 def main() -> None:
     app = QApplication(sys.argv)
+    # Without this, quitting while a background worker (a login call, or
+    # the offline banner's periodic health check) is still in flight lets
+    # Qt start destroying windows before that worker emits its signal --
+    # observed directly as "RuntimeError: Signal source has been deleted".
+    # Draining the pool here blocks quit until every queued/running worker
+    # finishes (or the timeout elapses), so shutdown is never mid-flight.
+    app.aboutToQuit.connect(lambda: QThreadPool.globalInstance().waitForDone(2000))
     window = LoginWindow()
     window.show()
     sys.exit(app.exec())
