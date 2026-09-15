@@ -46,6 +46,12 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y postgresql-client
           PGPASSWORD=erp createdb -h localhost -U erp erp_test
+          # Defensive parity with local setup (see scripts/setup_local_db.sql):
+          # on Postgres 15+, owning a database does not imply owning its
+          # `public` schema, and the test suite drops/recreates that schema
+          # between tests. The official image's POSTGRES_USER is already a
+          # superuser so this is normally a no-op here, but don't rely on it.
+          PGPASSWORD=erp psql -h localhost -U erp -d erp_test -c "ALTER SCHEMA public OWNER TO erp;"
 
       - name: Migrate up, down, up
         run: |
